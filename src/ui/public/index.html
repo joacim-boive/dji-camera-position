@@ -103,6 +103,18 @@
             </label>
           </form>
 
+          <form id="preset-form" class="preset-save">
+            <label for="preset-name">Name</label>
+            <input
+              id="preset-name"
+              name="name"
+              type="text"
+              maxlength="80"
+              placeholder="wide-left"
+            />
+            <button type="submit" disabled>Save view</button>
+          </form>
+
           <p class="hint">Zoom follows FOV and correction. It is not stored.</p>
           <ul id="notes" class="notes"></ul>
           <ul id="delta" class="delta"></ul>
@@ -112,7 +124,7 @@
               Match clip
               <select id="match"></select>
             </label>
-            <button id="write" type="button" disabled>Write to draft</button>
+            <button id="write" type="button" disabled>No changes</button>
           </div>
         </div>
       </main>
@@ -121,17 +133,6 @@
     <section class="barrel" aria-label="Presets">
       <div class="barrel-head">
         <h2>Presets</h2>
-        <form id="preset-form" class="preset-save">
-          <label for="preset-name">Name</label>
-          <input
-            id="preset-name"
-            name="name"
-            type="text"
-            maxlength="80"
-            placeholder="wide-left"
-          />
-          <button type="submit">Save view</button>
-        </form>
       </div>
       <ul id="presets" class="presets"></ul>
     </section>

@@ -19,9 +19,18 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-bottom: 14px;
+  overflow: hidden;
   color: var(--ink);
   background:
     radial-gradient(
@@ -58,10 +67,11 @@ body {
 
 .mast {
   display: flex;
+  flex: none;
   justify-content: space-between;
   align-items: flex-end;
   gap: 24px;
-  padding: 28px 0 18px;
+  padding: 10px 0 8px;
 }
 
 .eyebrow,
@@ -74,6 +84,10 @@ label span {
   color: var(--dim);
 }
 
+.eyebrow {
+  margin: 0 0 2px;
+}
+
 h1,
 h2,
 .project-label {
@@ -83,8 +97,8 @@ h2,
 }
 
 h1 {
-  font-size: clamp(48px, 7vw, 84px);
-  line-height: 0.85;
+  font-size: clamp(42px, 4.5vw, 58px);
+  line-height: 0.95;
   font-variation-settings: "opsz" 72;
 }
 
@@ -110,9 +124,11 @@ h2 {
 
 .desk {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: 260px 1fr;
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .shot-list,
@@ -126,8 +142,9 @@ h2 {
 }
 
 .shot-list {
-  padding: 18px 16px 12px;
-  min-height: 520px;
+  padding: 16px 16px 12px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .open {
@@ -212,8 +229,9 @@ button:disabled {
 }
 
 .glass {
-  padding: 22px 22px 18px;
-  min-height: 520px;
+  padding: 16px 18px 14px;
+  min-height: 0;
+  overflow: auto;
   background:
     linear-gradient(180deg, rgba(143, 208, 198, 0.05), transparent 28%),
     var(--glass);
@@ -259,6 +277,10 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.all-clips[hidden] {
+  display: none;
+}
+
 .all-clips input,
 .clip-pick input {
   width: auto;
@@ -276,7 +298,7 @@ button:disabled {
 }
 
 .level-caption {
-  margin: 18px 0 0;
+  margin: 10px 0 0;
   font-family: "Fragment Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -290,8 +312,8 @@ button:disabled {
 
 .level {
   position: relative;
-  height: 92px;
-  margin: 10px 0 8px;
+  height: 72px;
+  margin: 8px 0 6px;
   overflow: hidden;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -348,7 +370,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .readout label {
@@ -405,7 +427,7 @@ button:disabled {
 }
 
 .commit {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .match {
@@ -415,22 +437,30 @@ button:disabled {
   color: var(--muted);
 }
 
+.match[hidden] {
+  display: none;
+}
+
 #write {
+  margin-left: auto;
   min-width: 180px;
   padding: 14px 18px;
   font-size: 16px;
 }
 
 .barrel {
-  margin-top: 18px;
-  margin-bottom: 32px;
-  padding: 16px 18px 18px;
+  flex: none;
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding: 12px 16px 14px;
 }
 
 .preset-save {
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .preset-save label {
@@ -498,13 +528,26 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+    display: block;
+  }
+
   .desk,
   .readout,
   .glass-head,
   .commit,
+  .preset-save,
   .barrel-head,
   .mast {
     display: block;
+  }
+
+  .shot-list,
+  .glass {
+    overflow: visible;
   }
 
   .shot-list {

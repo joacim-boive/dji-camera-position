@@ -8,6 +8,8 @@ const form = document.querySelector("#view-form");
 const deltaEl = document.querySelector("#delta");
 const notesEl = document.querySelector("#notes");
 const writeButton = document.querySelector("#write");
+const presetName = document.querySelector("#preset-name");
+const saveViewButton = document.querySelector("#preset-form button");
 const matchSelect = document.querySelector("#match");
 const checkAll = document.querySelector("#check-all");
 const levelEl = document.querySelector("#level");
@@ -105,12 +107,17 @@ matchSelect.addEventListener("change", () => {
   }
 });
 
+presetName.addEventListener("input", () => {
+  saveViewButton.disabled = presetName.value.trim().length === 0;
+});
+
 document.querySelector("#preset-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  const name = new FormData(event.currentTarget).get("name");
-  if (typeof name === "string" && name.trim().length > 0) {
-    void savePreset(name.trim()).catch((error) => toast(error.message));
+  const name = presetName.value.trim();
+  if (name.length === 0) {
+    return;
   }
+  void savePreset(name).catch((error) => toast(error.message));
 });
 
 void refreshStudio();
@@ -276,6 +283,15 @@ function paintDraft() {
   }
   clipsEl.replaceChildren();
   matchSelect.replaceChildren();
+  const matchLabel = matchSelect.closest("label");
+  if (matchLabel instanceof HTMLElement) {
+    matchLabel.hidden = draft.clips.length < 2;
+  }
+  const allClips = checkAll.closest("label");
+  if (allClips instanceof HTMLElement) {
+    allClips.hidden = draft.clips.length < 2;
+  }
+  const chooseClips = draft.clips.length >= 2;
   for (const clip of draft.clips) {
     const row = document.createElement("div");
     row.className = "clip-pick";
@@ -306,7 +322,11 @@ function paintDraft() {
       fillForm(clip.view);
       paintDraft();
     });
-    row.append(box, button);
+    if (chooseClips) {
+      row.append(box, button);
+    } else {
+      row.append(button);
+    }
     clipsEl.append(row);
 
     const option = document.createElement("option");
@@ -363,7 +383,7 @@ function paintWrite() {
     ? "Write blocked"
     : changed
       ? `Write clip ${state.clipIndex}`
-      : "Write to draft";
+      : "No changes";
   paintApplyButtons();
 }
 
@@ -645,20 +665,32 @@ function paintApplyButtons() {
   }
 }
 
+function selectedClipIndexes() {
+  const clips = state.draft?.clips ?? [];
+  if (clips.length === 1) {
+    const only = clips[0];
+    return only === undefined ? [] : [only.index];
+  }
+  return [...state.checked].sort((left, right) => left - right);
+}
+
 function applyBlocked() {
   return (
     state.draft === null ||
-    state.checked.size === 0 ||
+    selectedClipIndexes().length === 0 ||
     state.studioRunning ||
     state.draft.signatureMatches === false
   );
 }
 
 async function applyPreset(name) {
-  if (state.draft === null || state.checked.size === 0) {
+  if (state.draft === null) {
     return;
   }
-  const clips = [...state.checked].sort((left, right) => left - right);
+  const clips = selectedClipIndexes();
+  if (clips.length === 0) {
+    return;
+  }
   const result = await api("/api/presets/apply", {
     path: state.draft.draftPath,
     name,
