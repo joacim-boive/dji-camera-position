@@ -145,11 +145,18 @@ const FramePreview = {
     this.video.addEventListener("seeked", () => {
       this.scrubber.value = String(this.video.currentTime);
     });
+    this.video.addEventListener("error", () => {
+      this.showMessage(remuxFailed);
+    });
     if (this.gl === null) {
       this.showMessage(noWebgl);
       return;
     }
     this.program = this.createProgram(this.gl);
+    if (this.program === null) {
+      this.showMessage(noWebgl);
+      return;
+    }
     this.texture = this.gl.createTexture();
     this.buffer = this.gl.createBuffer();
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
@@ -214,6 +221,7 @@ const FramePreview = {
     const type = probe.headers.get("content-type") ?? "";
     if (type.includes("application/json")) {
       const body = await probe.json();
+      if (ticket !== this.generation) return;
       this.showMessage(
         typeof body.error === "string" ? body.error : remuxFailed,
       );
@@ -341,12 +349,16 @@ const FramePreview = {
 
   createProgram(gl) {
     const program = gl.createProgram();
-    gl.attachShader(program, this.compile(gl, gl.VERTEX_SHADER, vertexSource));
-    gl.attachShader(
-      program,
-      this.compile(gl, gl.FRAGMENT_SHADER, fragmentSource),
-    );
+    const vertex = this.compile(gl, gl.VERTEX_SHADER, vertexSource);
+    const fragment = this.compile(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    if (vertex === null || fragment === null) return null;
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
     gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(program));
+      return null;
+    }
     return program;
   },
 
@@ -365,6 +377,10 @@ ${source
       : source;
     gl.shaderSource(shader, shaderSource);
     gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(shader));
+      return null;
+    }
     return shader;
   },
 };

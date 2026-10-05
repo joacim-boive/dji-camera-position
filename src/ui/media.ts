@@ -12,6 +12,7 @@ export const missingFfmpegSentence =
 export const remuxFailedSentence = "The preview proxy could not be prepared.";
 
 const jobs = new Map<string, Promise<string>>();
+const ffmpegSpawnErrors = new WeakSet<object>();
 
 export function proxyCacheKey(
   realPath: string,
@@ -184,7 +185,10 @@ function runFfmpeg(input: string, outputPart: string): Promise<void> {
       settled = true;
       reject(error);
     };
-    child.on("error", fail);
+    child.on("error", (error) => {
+      ffmpegSpawnErrors.add(error);
+      fail(error);
+    });
     child.on("close", (code) => {
       if (code === 0) {
         settled = true;
@@ -201,7 +205,8 @@ export function remuxSentence(error: unknown): string {
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    error.code === "ENOENT"
+    error.code === "ENOENT" &&
+    ffmpegSpawnErrors.has(error)
   ) {
     return missingFfmpegSentence;
   }

@@ -130,26 +130,42 @@ document.querySelector("#preset-form").addEventListener("submit", (event) => {
 
 const previewStorageKey = "frame-desk-preview";
 let shownClip = null;
+let previewReady = false;
+const framePreview = window.FramePreview;
 
-FramePreview.mount({
-  canvas: pictureCanvas,
-  video: pictureVideo,
-  message: pictureMessage,
-  playButton: picturePlay,
-  pauseButton: picturePause,
-  scrubber: pictureScrub,
-  token,
-});
+try {
+  if (!framePreview) {
+    throw new Error("The live preview could not be started.");
+  }
+  framePreview.mount({
+    canvas: pictureCanvas,
+    video: pictureVideo,
+    message: pictureMessage,
+    playButton: picturePlay,
+    pauseButton: picturePause,
+    scrubber: pictureScrub,
+    token,
+  });
+  previewReady = true;
+} catch (error) {
+  picture.hidden = true;
+  toast(error instanceof Error ? error.message : String(error));
+}
 
 function previewHidden() {
   return localStorage.getItem(previewStorageKey) === "hidden";
 }
 
 function paintPreviewToggle() {
+  if (!previewReady) {
+    previewToggle.setAttribute("aria-pressed", "false");
+    picture.hidden = true;
+    return;
+  }
   const hidden = previewHidden();
   previewToggle.setAttribute("aria-pressed", String(!hidden));
   picture.hidden = hidden;
-  FramePreview.setVisible(!hidden);
+  framePreview.setVisible(!hidden);
   if (hidden) {
     shownClip = null;
   }
@@ -166,7 +182,7 @@ previewToggle.addEventListener("click", () => {
 });
 
 function showCurrentClip() {
-  if (picture.hidden || state.draft === null) return;
+  if (!previewReady || picture.hidden || state.draft === null) return;
   const clip =
     state.draft.clips.find((item) => item.index === state.clipIndex) ??
     state.draft.clips[0];
@@ -183,7 +199,7 @@ function showCurrentClip() {
     clipIndex: clip.index,
     proxyReady: clip.proxyReady,
   };
-  FramePreview.showClip(state.draft.draftPath, clip);
+  framePreview.showClip(state.draft.draftPath, clip);
 }
 
 paintPreviewToggle();
@@ -475,7 +491,7 @@ function paintLevel() {
   levelCaption.textContent = armed
     ? `${fieldLabel[armedField]}${drag?.fine ? " · fine" : " · scroll for fine, side-scroll for big"}`
     : "Focus a field, then drag or scroll";
-  FramePreview.setView(view);
+  if (previewReady) framePreview.setView(view);
   for (const key of viewKeys) {
     form.elements[key]
       .closest("label")

@@ -1,9 +1,22 @@
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { crc32Hex } from "../src/model/signature.js";
-import { parseByteRange, proxyCacheKey } from "../src/ui/media.js";
+import {
+  parseByteRange,
+  proxyCacheKey,
+  remuxFailedSentence,
+  remuxSentence,
+} from "../src/ui/media.js";
 import { startUiServer, type UiServer } from "../src/ui/server.js";
 
 function wrap(data: string): string {
@@ -302,6 +315,89 @@ describe("framing desk", () => {
     expect(text).not.toContain("proxyPath");
   });
 
+  it("reports a sibling proxy for a relative asset locator", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "dji-ui-relative-proxy-"));
+    const draftPath = path.join(root, "31", "draft.json");
+    const proxyPath = path.join(root, "media", "clip.LRF");
+    await mkdir(path.dirname(draftPath), { recursive: true });
+    await mkdir(path.dirname(proxyPath), { recursive: true });
+    await writeFile(proxyPath, "proxy");
+    await writeFile(
+      draftPath,
+      wrap(assetPayload(path.join("..", "media", "clip.OSV"))),
+    );
+    ui = await startUiServer({
+      port: 0,
+      homeRoot: root,
+      projectRoot: root,
+      libraryPath: path.join(root, "library.json"),
+      checkStudio: false,
+    });
+
+    const opened = await fetch(
+      `${ui.url}/api/draft?path=${encodeURIComponent(draftPath)}`,
+    );
+    expect(opened.status).toBe(200);
+    const body = await opened.json();
+    expect(body.clips[0]?.proxyReady).toBe(true);
+    const text = JSON.stringify(body);
+    expect(text).not.toContain(proxyPath);
+    expect(text).not.toContain("proxyPath");
+  });
+
+  it("serves cached proxy bytes and byte ranges without ffmpeg", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "dji-ui-cached-media-"));
+    const source = path.join(root, "media", "clip.OSV");
+    const lrfPath = path.join(root, "media", "clip.LRF");
+    const draftPath = path.join(root, "31", "draft.json");
+    const payload = Buffer.from("0123456789");
+    await mkdir(path.dirname(draftPath), { recursive: true });
+    await mkdir(path.dirname(lrfPath), { recursive: true });
+    await writeFile(lrfPath, "source proxy");
+    await writeFile(draftPath, wrap(assetPayload(source)));
+    const resolved = await realpath(lrfPath);
+    const info = await stat(resolved);
+    const hash = proxyCacheKey(resolved, info.size, info.mtimeMs);
+    const cached = path.join(
+      tmpdir(),
+      "frame-desk-proxies",
+      `${hash}.mp4`,
+    );
+    await mkdir(path.dirname(cached), { recursive: true });
+    await writeFile(cached, payload);
+
+    ui = await startUiServer({
+      port: 0,
+      homeRoot: root,
+      projectRoot: root,
+      libraryPath: path.join(root, "library.json"),
+      checkStudio: false,
+    });
+    const page = await fetch(ui.url);
+    const token = (await page.text()).match(/FRAME_TOKEN = "([0-9a-f]+)"/)?.[1];
+    expect(token).toBeTruthy();
+    const media = new URL("/api/media", ui.url);
+    media.searchParams.set("path", draftPath);
+    media.searchParams.set("clip", "1");
+    media.searchParams.set("t", token ?? "");
+
+    const full = await fetch(media);
+    expect(full.status).toBe(200);
+    expect(full.headers.get("accept-ranges")).toBe("bytes");
+    expect(Buffer.from(await full.arrayBuffer())).toEqual(payload);
+
+    const partial = await fetch(media, {
+      headers: { Range: "bytes=2-5" },
+    });
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get("content-range")).toBe(
+      `bytes 2-5/${payload.length}`,
+    );
+    expect(Buffer.from(await partial.arrayBuffer())).toEqual(
+      payload.subarray(2, 6),
+    );
+  });
+
   it("refuses media without a token and ignores an extra query key", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "dji-ui-media-"));
     const source = path.join(root, "media", "clip.OSV");
@@ -354,6 +450,12 @@ describe("framing desk", () => {
 });
 
 describe("proxy cache", () => {
+  it("does not report a missing stat target as missing ffmpeg", () => {
+    expect(remuxSentence({ code: "ENOENT", syscall: "stat" })).toBe(
+      remuxFailedSentence,
+    );
+  });
+
   it("hashes the real path, size, and truncated mtime", () => {
     expect(proxyCacheKey("a", 1, 2.9)).toBe(
       "8f0553e027e13e3868132bb8fceb7908479b3f6e27ce01eca76989274b3f5dc0",
