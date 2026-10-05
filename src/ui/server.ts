@@ -235,6 +235,9 @@ async function handleRequest(
         const file = await preparedProxy(realPath, info.size, info.mtimeMs);
         await sendVideo(request, response, file);
       } catch (error) {
+        if (response.destroyed || response.writableEnded) {
+          return;
+        }
         if (response.headersSent) {
           response.destroy();
           return;

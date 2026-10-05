@@ -89,7 +89,13 @@ export async function sendVideo(
   response: ServerResponse,
   filePath: string,
 ): Promise<void> {
+  if (response.destroyed || response.writableEnded) {
+    return;
+  }
   const info = await stat(filePath);
+  if (response.destroyed || response.writableEnded) {
+    return;
+  }
   const size = info.size;
   const range = parseByteRange(request.headers.range, size);
   if (range.kind === "unsatisfiable") {
@@ -118,10 +124,13 @@ export async function sendVideo(
     response.end();
     return;
   }
+  if (response.destroyed || response.writableEnded) {
+    return;
+  }
   await new Promise<void>((resolve, reject) => {
     const stream = createReadStream(filePath, { start, end });
     stream.on("error", reject);
-    response.on("close", () => {
+    response.once("close", () => {
       stream.destroy();
       resolve();
     });
