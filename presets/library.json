@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "name": "test",
+      "pan": -180.00000500895632,
+      "tilt": 0,
+      "roll": 0,
+      "fov": 60,
+      "correction": 1
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.tsbuildinfo
+pnpm-debug.log*
+
+# DJI source media. Never commit footage or camera originals.
+*.OSV
+*.osv
+*.MP4
+*.mp4
+*.MOV
+*.mov
+*.LRV
+*.lrv
+*.THM
+*.thm
+*.LRF
+*.lrf
+*.INSV
+*.insv
+
+# Local project copies and write-phase backups.
+fixtures/private/*
+!fixtures/private/.gitkeep
+projects/
+backups/
+*.backup-*
+*.tmp-*
+
+# SQLite sidecars copied from a live app session.
+*.db-wal
+*.db-shm
+.history

@@ -1,0 +1,23 @@
+{
+  "signature": "11111111",
+  "signature_method": "crc32",
+  "created_at": "2026-10-01T00:00:00Z",
+  "data": {
+    "nodes": [
+      {
+        "__type__": "PanoramaViewData",
+        "id": "clip-a",
+        "view_param": [0, 0, 0, 60, 1],
+        "view_offset": [0, 0, 0, 0, 0],
+        "mystery_component": 1,
+        "unrelated_label": "keep-me"
+      },
+      {
+        "__type__": "PanoramaFilter",
+        "id": "filter-a",
+        "horizon_correct": 1,
+        "cache_path": "/Users/example/Library/Caches/old"
+      }
+    ]
+  }
+}

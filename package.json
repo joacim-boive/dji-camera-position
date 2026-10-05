@@ -1,0 +1,27 @@
+{
+  "name": "dji-studio-tools",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Inspect DJI Studio projects and copy virtual-camera settings without re-encoding video.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dji": "tsx src/cli/index.ts",
+    "app": "NODE_OPTIONS='--import tsx' electron src/app/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "^44.5.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Frame desk</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23100e0c' width='32' height='32'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23e7a15a' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Fragment+Mono&family=Schibsted+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <div class="vignette"></div>
+    <header class="mast">
+      <div>
+        <p class="eyebrow">DJI Studio · free view</p>
+        <h1>Frame desk</h1>
+      </div>
+      <p id="studio" class="studio">Checking DJI Studio…</p>
+    </header>
+
+    <div class="desk">
+      <aside class="shot-list">
+        <h2>Projects</h2>
+        <form id="open-form" class="open">
+          <label id="open-label" for="open-path">Folder</label>
+          <input
+            id="open-path"
+            name="path"
+            type="text"
+            placeholder="Project folder or draft.json"
+            autocomplete="off"
+          />
+          <button id="open-submit" type="submit">Open</button>
+          <button id="pick-folder" type="button" hidden>Choose folder</button>
+        </form>
+        <ul id="projects" class="projects"></ul>
+      </aside>
+
+      <main class="glass" id="glass">
+        <p class="empty" id="empty">Open a project to read its clips.</p>
+        <div id="monitor" hidden>
+          <div class="glass-head">
+            <div>
+              <p id="project-label" class="project-label"></p>
+              <p id="signature" class="signature"></p>
+            </div>
+            <div
+              id="clips"
+              class="clips"
+              role="tablist"
+              aria-label="Clips"
+            ></div>
+          </div>
+
+          <p id="level-caption" class="level-caption">
+            Focus a field, then drag
+          </p>
+          <div class="level" id="level">
+            <div class="horizon"></div>
+            <div class="pan-mark"></div>
+            <div class="reticle"></div>
+          </div>
+
+          <form id="view-form" class="readout">
+            <label>
+              Pan
+              <input name="pan" type="number" step="0.1" />
+              <span>degrees</span>
+            </label>
+            <label>
+              Tilt
+              <input name="tilt" type="number" step="0.1" />
+              <span>degrees</span>
+            </label>
+            <label>
+              Roll
+              <input name="roll" type="number" step="0.1" />
+              <span>degrees</span>
+            </label>
+            <label>
+              FOV
+              <input name="fov" type="number" step="0.1" />
+              <span>degrees</span>
+            </label>
+            <label>
+              Correction
+              <input name="correction" type="number" step="0.01" />
+              <span>screen value</span>
+            </label>
+          </form>
+
+          <p class="hint">Zoom follows FOV and correction. It is not stored.</p>
+          <ul id="notes" class="notes"></ul>
+          <ul id="delta" class="delta"></ul>
+
+          <div class="commit">
+            <label class="match">
+              Match clip
+              <select id="match"></select>
+            </label>
+            <button id="write" type="button" disabled>Write to draft</button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <section class="barrel" aria-label="Presets">
+      <div class="barrel-head">
+        <h2>Presets</h2>
+        <form id="preset-form" class="preset-save">
+          <label for="preset-name">Name</label>
+          <input
+            id="preset-name"
+            name="name"
+            type="text"
+            maxlength="80"
+            placeholder="wide-left"
+          />
+          <button type="submit">Save view</button>
+        </form>
+      </div>
+      <ul id="presets" class="presets"></ul>
+    </section>
+
+    <p id="toast" class="toast" role="status"></p>
+    <script>
+      window.FRAME_TOKEN = "__TOKEN__";
+    </script>
+    <script src="/app.js"></script>
+  </body>
+</html>
