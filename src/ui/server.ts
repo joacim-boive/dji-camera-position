@@ -28,6 +28,7 @@ import {
   formatDegrees,
   formatMicros,
 } from "../model/format-view.js";
+import { lrfIsPresent } from "../model/proxy.js";
 import { resolveUserPath } from "../paths.js";
 import {
   defaultPresetLibraryPath,
@@ -195,7 +196,7 @@ async function handleRequest(
     if (request.method === "GET" && url.pathname === "/api/draft") {
       const target = url.searchParams.get("path") ?? "";
       const report = await readAllowedDraft(target, context.homeRoot);
-      sendJson(response, 200, draftJson(report));
+      sendJson(response, 200, await draftJson(report));
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/presets") {
@@ -238,7 +239,7 @@ async function handleRequest(
           : { backupPath: result.backupPath }),
         before: result.before,
         after: result.after,
-        draft: draftJson(report),
+        draft: await draftJson(report),
       });
       return;
     }
@@ -267,7 +268,7 @@ async function handleRequest(
         ...(result.backupPath === undefined
           ? {}
           : { backupPath: result.backupPath }),
-        draft: draftJson(report),
+        draft: await draftJson(report),
       });
       return;
     }
@@ -313,7 +314,7 @@ export async function readAllowedDraft(
   return readDraftViews(draftPath);
 }
 
-function draftJson(report: DraftViewReport): {
+async function draftJson(report: DraftViewReport): Promise<{
   draftPath: string;
   signature: string;
   signatureMatches: boolean;
@@ -323,19 +324,27 @@ function draftJson(report: DraftViewReport): {
     hasDirectionLockView: boolean;
     keyframeCount: number;
     view: CameraView;
+    timeStart: number;
+    timeEnd: number;
+    proxyReady: boolean;
   }>;
-} {
+}> {
   return {
     draftPath: report.draftPath,
     signature: report.signature,
     signatureMatches: report.signatureMatches,
-    clips: report.clips.map((clip) => ({
-      index: clip.index,
-      label: `${formatMicros(clip.timeStart)} – ${formatMicros(clip.timeEnd)}`,
-      hasDirectionLockView: clip.hasDirectionLockView,
-      keyframeCount: clip.keyframes.length,
-      view: clip.view,
-    })),
+    clips: await Promise.all(
+      report.clips.map(async (clip) => ({
+        index: clip.index,
+        label: `${formatMicros(clip.timeStart)} – ${formatMicros(clip.timeEnd)}`,
+        hasDirectionLockView: clip.hasDirectionLockView,
+        keyframeCount: clip.keyframes.length,
+        view: clip.view,
+        timeStart: clip.timeStart,
+        timeEnd: clip.timeEnd,
+        proxyReady: await lrfIsPresent(clip.proxyPath),
+      })),
+    ),
   };
 }
 

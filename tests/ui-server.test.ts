@@ -105,6 +105,10 @@ describe("framing desk", () => {
     const body = await written.json();
     expect(body.changed).toBe(true);
     expect(body.draft.clips[1]?.view.pan).toBeCloseTo(-180, 3);
+    expect(body.draft.clips[0]?.timeStart).toBe(0);
+    expect(body.draft.clips[0]?.timeEnd).toBe(8_200_000);
+    expect(body.draft.clips[0]?.proxyReady).toBe(false);
+    expect(JSON.stringify(body.draft)).not.toContain("proxyPath");
     const text = await readFile(draftPath, "utf8");
     expect(text).toContain('"volume":1.0');
     expect(text).toContain("-3.1415927410125732");
@@ -227,6 +231,55 @@ describe("framing desk", () => {
         name.startsWith("draft.json.backup-"),
       ),
     ).toHaveLength(1);
+  });
+
+  it("reports a missing proxy without a filesystem path", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "dji-ui-proxy-"));
+    const source = path.join(root, "media", "clip.OSV");
+    const draftPath = path.join(root, "31", "draft.json");
+    await mkdir(path.dirname(draftPath), { recursive: true });
+    const payload = JSON.stringify({
+      nodes: [
+        {
+          __type__: "Track",
+          id: "track-1",
+          clips: [{ id: "video-1" }],
+        },
+        {
+          __type__: "PanoramaVideo",
+          id: "video-1",
+          time_range: [1_000_000, 5_000_000],
+          freedom_view_id: "view-1",
+          resource_asset: "asset-1",
+        },
+        { __type__: "Asset", id: "asset-1", locator: source },
+        {
+          __type__: "PanoramaViewData",
+          id: "view-1",
+          view_param: [0, 0, 0, 60, 1],
+          view_offset: [0, 0, 0, 0, 0],
+        },
+      ],
+    });
+    await writeFile(draftPath, wrap(payload));
+    ui = await startUiServer({
+      port: 0,
+      homeRoot: root,
+      projectRoot: root,
+      libraryPath: path.join(root, "library.json"),
+      checkStudio: false,
+    });
+    const opened = await fetch(
+      `${ui.url}/api/draft?path=${encodeURIComponent(draftPath)}`,
+    );
+    expect(opened.status).toBe(200);
+    const body = await opened.json();
+    expect(body.clips[0]?.proxyReady).toBe(false);
+    expect(body.clips[0]?.timeStart).toBe(1_000_000);
+    expect(body.clips[0]?.timeEnd).toBe(5_000_000);
+    const text = JSON.stringify(body);
+    expect(text).not.toContain(source);
+    expect(text).not.toContain("proxyPath");
   });
 });
 

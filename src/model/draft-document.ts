@@ -27,6 +27,7 @@ import {
   keyValueSpan,
   type TextSpan,
 } from "./json-span.js";
+import { lrfBesideSource } from "./proxy.js";
 import {
   crc32Hex,
   dataValueSpan,
@@ -51,6 +52,7 @@ export type ClipView = {
   viewParam: ViewTuple;
   viewOffset: ViewTuple;
   keyframes: ClipKeyframe[];
+  proxyPath: string | undefined;
 };
 
 export type DraftViewReport = {
@@ -152,7 +154,7 @@ export function parseDraftViews(
     signature: signature.hex,
     signatureMethod: signature.method,
     signatureMatches: signature.matches,
-    clips: readClips(nodes),
+    clips: readClips(draftPath, nodes),
   };
 }
 
@@ -317,7 +319,10 @@ async function collectDrafts(
   }
 }
 
-function readClips(nodes: readonly Record<string, unknown>[]): ClipView[] {
+function readClips(
+  draftPath: string,
+  nodes: readonly Record<string, unknown>[],
+): ClipView[] {
   const byId = new Map<string, Record<string, unknown>>();
   const videos: VideoNode[] = [];
   for (const node of nodes) {
@@ -362,6 +367,7 @@ function readClips(nodes: readonly Record<string, unknown>[]): ClipView[] {
       viewParam,
       viewOffset,
       keyframes,
+      proxyPath: lrfBesideSource(draftPath, byId.get(video.id), byId),
     };
   });
 }
