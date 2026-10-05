@@ -33,3 +33,4 @@ backups/
 *.db-wal
 *.db-shm
 .history
+.worktrees/
