@@ -290,6 +290,7 @@ const FramePreview = {
 
   draw() {
     window.cancelAnimationFrame(this.frame);
+    if (this.program === null) return;
     if (!this.visible || this.gl === null) return;
     this.frame = window.requestAnimationFrame(() => this.draw());
     this.keepInside();
