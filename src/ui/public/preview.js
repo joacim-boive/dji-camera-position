@@ -108,12 +108,25 @@ const FramePreview = {
     this.loopEnd = 0;
     this.looping = false;
     this.frame = 0;
-    this.gl = this.canvas.getContext("webgl", { premultipliedAlpha: false });
+    const webgl2 = this.canvas.getContext("webgl2", {
+      premultipliedAlpha: false,
+    });
+    this.gl =
+      webgl2 ??
+      this.canvas.getContext("webgl", { premultipliedAlpha: false });
+    this.isWebgl2 = webgl2 !== null;
     this.video.muted = true;
     this.video.defaultMuted = true;
     this.video.volume = 0;
     this.video.playsInline = true;
     this.playButton.addEventListener("click", () => {
+      if (
+        this.looping &&
+        (this.video.currentTime < this.loopStart ||
+          this.video.currentTime >= this.loopEnd)
+      ) {
+        this.video.currentTime = this.loopStart;
+      }
       void this.video.play();
     });
     this.pauseButton.addEventListener("click", () => {
@@ -124,7 +137,11 @@ const FramePreview = {
       if (Number.isFinite(next)) this.video.currentTime = next;
     });
     this.video.addEventListener("timeupdate", () => this.keepInside());
-    this.video.addEventListener("ended", () => this.keepInside());
+    this.video.addEventListener("ended", () => {
+      if (!this.looping) return;
+      this.video.currentTime = this.loopStart;
+      void this.video.play();
+    });
     this.video.addEventListener("seeked", () => {
       this.scrubber.value = String(this.video.currentTime);
     });
@@ -242,7 +259,7 @@ const FramePreview = {
   keepInside() {
     this.scrubber.value = String(this.video.currentTime);
     if (!this.looping || this.video.paused) return;
-    if (this.video.currentTime >= this.loopEnd - 0.05) {
+    if (this.video.currentTime >= this.loopEnd) {
       this.video.currentTime = this.loopStart;
     }
   },
@@ -267,6 +284,7 @@ const FramePreview = {
     window.cancelAnimationFrame(this.frame);
     if (!this.visible || this.gl === null) return;
     this.frame = window.requestAnimationFrame(() => this.draw());
+    this.keepInside();
     this.resize();
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -294,7 +312,11 @@ const FramePreview = {
         gl.UNSIGNED_BYTE,
         this.video,
       );
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_S,
+        this.isWebgl2 ? gl.REPEAT : gl.CLAMP_TO_EDGE,
+      );
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -330,7 +352,18 @@ const FramePreview = {
 
   compile(gl, type, source) {
     const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
+    const shaderSource = this.isWebgl2
+      ? `#version 300 es
+${source
+  .replace("attribute vec2 position;", "in vec2 position;")
+  .replace(
+    "precision mediump float;",
+    "precision mediump float;\nout vec4 fragmentColor;",
+  )
+  .replace("texture2D(", "texture(")
+  .replace("gl_FragColor", "fragmentColor")}`
+      : source;
+    gl.shaderSource(shader, shaderSource);
     gl.compileShader(shader);
     return shader;
   },
