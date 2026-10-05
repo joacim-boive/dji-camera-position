@@ -51,6 +51,14 @@
             <div>
               <p id="project-label" class="project-label"></p>
               <p id="signature" class="signature"></p>
+              <button
+                id="preview-toggle"
+                class="preview-toggle"
+                type="button"
+                aria-pressed="true"
+              >
+                Preview
+              </button>
             </div>
             <div class="clip-tools">
               <label class="all-clips">
@@ -65,6 +73,32 @@
               ></div>
             </div>
           </div>
+
+          <section id="picture" class="picture" aria-label="Preview">
+            <div class="picture-frame">
+              <canvas id="picture-canvas"></canvas>
+              <p id="picture-message" class="picture-message" hidden></p>
+              <video
+                id="picture-video"
+                class="preview-source"
+                playsinline
+                muted
+              ></video>
+            </div>
+            <div class="transport">
+              <button id="picture-play" type="button">Play</button>
+              <button id="picture-pause" type="button">Pause</button>
+              <input
+                id="picture-scrub"
+                type="range"
+                min="0"
+                max="0"
+                step="0.01"
+                value="0"
+                aria-label="Scrub"
+              />
+            </div>
+          </section>
 
           <p id="level-caption" class="level-caption">
             Focus a field, then drag
@@ -141,6 +175,7 @@
     <script>
       window.FRAME_TOKEN = "__TOKEN__";
     </script>
+    <script src="/preview.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

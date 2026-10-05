@@ -17,6 +17,14 @@ const levelCaption = document.querySelector("#level-caption");
 const presetsEl = document.querySelector("#presets");
 const studioEl = document.querySelector("#studio");
 const toastEl = document.querySelector("#toast");
+const previewToggle = document.querySelector("#preview-toggle");
+const picture = document.querySelector("#picture");
+const pictureCanvas = document.querySelector("#picture-canvas");
+const pictureVideo = document.querySelector("#picture-video");
+const pictureMessage = document.querySelector("#picture-message");
+const picturePlay = document.querySelector("#picture-play");
+const picturePause = document.querySelector("#picture-pause");
+const pictureScrub = document.querySelector("#picture-scrub");
 
 const state = {
   projects: [],
@@ -119,6 +127,50 @@ document.querySelector("#preset-form").addEventListener("submit", (event) => {
   }
   void savePreset(name).catch((error) => toast(error.message));
 });
+
+const previewStorageKey = "frame-desk-preview";
+
+FramePreview.mount({
+  canvas: pictureCanvas,
+  video: pictureVideo,
+  message: pictureMessage,
+  playButton: picturePlay,
+  pauseButton: picturePause,
+  scrubber: pictureScrub,
+  token,
+});
+
+function previewHidden() {
+  return localStorage.getItem(previewStorageKey) === "hidden";
+}
+
+function paintPreviewToggle() {
+  const hidden = previewHidden();
+  previewToggle.setAttribute("aria-pressed", String(!hidden));
+  picture.hidden = hidden;
+  FramePreview.setVisible(!hidden);
+}
+
+previewToggle.addEventListener("click", () => {
+  if (previewHidden()) {
+    localStorage.removeItem(previewStorageKey);
+  } else {
+    localStorage.setItem(previewStorageKey, "hidden");
+  }
+  paintPreviewToggle();
+  showCurrentClip();
+});
+
+function showCurrentClip() {
+  if (picture.hidden || state.draft === null) return;
+  const clip =
+    state.draft.clips.find((item) => item.index === state.clipIndex) ??
+    state.draft.clips[0];
+  if (!clip) return;
+  FramePreview.showClip(state.draft.draftPath, clip);
+}
+
+paintPreviewToggle();
 
 void refreshStudio();
 void loadProjects();
@@ -346,6 +398,7 @@ function paintDraft() {
   paintChecks();
   paintApplyButtons();
   schedulePreview();
+  showCurrentClip();
 }
 
 function paintPreview() {
@@ -406,6 +459,7 @@ function paintLevel() {
   levelCaption.textContent = armed
     ? `${fieldLabel[armedField]}${drag?.fine ? " · fine" : " · scroll for fine, side-scroll for big"}`
     : "Focus a field, then drag or scroll";
+  FramePreview.setView(view);
   for (const key of viewKeys) {
     form.elements[key]
       .closest("label")
