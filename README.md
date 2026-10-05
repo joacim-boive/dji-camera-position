@@ -56,7 +56,7 @@ It does not walk the rest of the home directory. Cache, crash, and log directori
 
 `preset save` reads one clip and stores the on-screen pan, tilt, roll, FOV, and correction in `presets/library.json`. `preset apply` writes that view onto a clip when `--write` is passed. Presets do not store zoom, keyframes, or direction lock.
 
-`pnpm app` opens Frame Desk in its own window. It lists DJI Studio projects, edits one clip’s free view, and saves presets. The draft changes only when you press Write, and only after DJI Studio has quit. `pnpm dji ui` opens that same desk in a browser.
+`pnpm app` opens Frame Desk in its own window. It lists DJI Studio projects, edits one clip’s free view, and saves presets. Apply writes a preset onto every clip you check, in one backup. The draft changes only when you press Write or Apply, and only after DJI Studio has quit. `pnpm dji ui` opens that same desk in a browser.
 
 ## Reverse engineering status
 

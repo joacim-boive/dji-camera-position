@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -144,4 +144,92 @@ describe("framing desk", () => {
     expect(picked.status).toBe(200);
     expect(await picked.json()).toEqual({ path: chosen });
   });
+
+  it("applies one preset to the checked clips and refuses a bad request", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "dji-ui-apply-"));
+    const draftPath = path.join(root, "31", "draft.json");
+    await mkdir(path.dirname(draftPath), { recursive: true });
+    const original = wrap(threeClipData());
+    await writeFile(draftPath, original);
+    ui = await startUiServer({
+      port: 0,
+      homeRoot: root,
+      projectRoot: root,
+      libraryPath: path.join(root, "library.json"),
+      checkStudio: false,
+    });
+    const page = await fetch(ui.url);
+    const token = (await page.text()).match(/FRAME_TOKEN = "([0-9a-f]+)"/)?.[1];
+    const headers = {
+      "content-type": "application/json",
+      "x-frame-desk": token ?? "",
+    };
+    const saved = await fetch(`${ui.url}/api/presets`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: "wide-left",
+        pan: -180,
+        tilt: 0,
+        roll: 0,
+        fov: 60,
+        correction: 1,
+      }),
+    });
+    expect(saved.status).toBe(200);
+
+    const anonymous = await fetch(`${ui.url}/api/presets/apply`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: draftPath, name: "wide-left", clips: [1] }),
+    });
+    expect(anonymous.status).toBe(403);
+
+    const empty = await fetch(`${ui.url}/api/presets/apply`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ path: draftPath, name: "wide-left", clips: [] }),
+    });
+    expect(empty.status).toBe(400);
+    expect(await empty.json()).toEqual({ error: "Check at least one clip." });
+
+    const missing = await fetch(`${ui.url}/api/presets/apply`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ path: draftPath, name: "missing", clips: [1] }),
+    });
+    expect(missing.status).toBe(400);
+    expect(await missing.json()).toEqual({ error: "No preset named missing." });
+    expect(await readFile(draftPath, "utf8")).toBe(original);
+
+    const applied = await fetch(`${ui.url}/api/presets/apply`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        path: draftPath,
+        name: "wide-left",
+        clips: [1, 3],
+      }),
+    });
+    expect(applied.status).toBe(200);
+    const body = await applied.json();
+    expect(body.changed).toBe(true);
+    expect(body.updated).toEqual([1, 3]);
+    expect(body.unchanged).toEqual([]);
+    expect(body.draft.clips[0]?.view.pan).toBeCloseTo(-180, 3);
+    expect(body.draft.clips[2]?.view.pan).toBeCloseTo(-180, 3);
+    expect(body.draft.clips[1]?.view.pan).toBeCloseTo((1 * 180) / Math.PI, 3);
+    const text = await readFile(draftPath, "utf8");
+    expect(text).toContain('"view_offset":[0.0,1.0,0.0,0.0,0.0]');
+    expect(text).toContain('"kept":true');
+    expect(
+      (await readdir(path.dirname(draftPath))).filter((name) =>
+        name.startsWith("draft.json.backup-"),
+      ),
+    ).toHaveLength(1);
+  });
 });
+
+function threeClipData(): string {
+  return `{"nodes":[{"__type__":"Track","id":"track-1","volume":1.0,"clips":[{"id":"video-1"},{"id":"video-2"},{"id":"video-3"}]},{"__type__":"PanoramaVideo","id":"video-1","time_range":[0,1000],"freedom_view_id":"view-1"},{"__type__":"PanoramaVideo","id":"video-2","time_range":[1000,2000],"freedom_view_id":"view-2"},{"__type__":"PanoramaVideo","id":"video-3","time_range":[2000,3000],"freedom_view_id":"view-3"},{"__type__":"PanoramaViewData","id":"view-1","view_param":[0.0,0.0,0.0,60.0,1.0],"view_offset":[0.0,0.0,0.0,0.0,0.0]},{"__type__":"PanoramaViewData","id":"view-2","view_param":[0.0,0.0,0.0,60.0,1.0],"view_offset":[0.0,1.0,0.0,0.0,0.0],"kept":true},{"__type__":"PanoramaViewData","id":"view-3","view_param":[0.0,0.0,0.0,60.0,1.0],"view_offset":[0.0,0.0,0.0,0.0,0.0]}]}`;
+}

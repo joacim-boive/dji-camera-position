@@ -236,11 +236,33 @@ button:disabled {
   align-items: end;
 }
 
+.clip-tools,
 .clips {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.all-clips,
+.clip-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.all-clips {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.all-clips input,
+.clip-pick input {
+  width: auto;
+  accent-color: var(--amber);
 }
 
 .clips button {

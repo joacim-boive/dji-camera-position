@@ -20,6 +20,7 @@ import {
   readDraftViews,
   resolveDraftFile,
   writeClipView,
+  writeClipViews,
   type DraftViewReport,
 } from "../model/draft-document.js";
 import {
@@ -32,6 +33,7 @@ import {
   defaultPresetLibraryPath,
   deletePreset,
   loadPresetLibrary,
+  presetNamed,
   savePreset,
 } from "../presets/library.js";
 import { assertStudioQuit, studioIsRunning } from "../studio.js";
@@ -240,6 +242,35 @@ async function handleRequest(
       });
       return;
     }
+    if (request.method === "POST" && url.pathname === "/api/presets/apply") {
+      const body = await readJson(request);
+      const draftPath = (
+        await readAllowedDraft(requiredString(body, "path"), context.homeRoot)
+      ).draftPath;
+      if (context.checkStudio) {
+        await assertStudioQuit();
+      }
+      const preset = presetNamed(
+        await loadPresetLibrary(context.libraryPath),
+        requiredString(body, "name"),
+      );
+      const result = await writeClipViews(
+        draftPath,
+        readClipList(body),
+        preset.view,
+      );
+      const report = await readDraftViews(draftPath);
+      sendJson(response, 200, {
+        changed: result.changed,
+        updated: result.updated,
+        unchanged: result.unchanged,
+        ...(result.backupPath === undefined
+          ? {}
+          : { backupPath: result.backupPath }),
+        draft: draftJson(report),
+      });
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/api/presets") {
       const body = await readJson(request);
       const saved = await savePreset(
@@ -382,6 +413,29 @@ function requiredString(body: Record<string, unknown>, key: string): string {
     throw new Error(`${key} is required.`);
   }
   return value;
+}
+
+function readClipList(body: Record<string, unknown>): number[] {
+  const value = body.clips;
+  if (!Array.isArray(value)) {
+    throw new Error("Check at least one clip.");
+  }
+  const clips: number[] = [];
+  const seen = new Set<number>();
+  for (const item of value) {
+    if (typeof item !== "number" || !Number.isInteger(item) || item < 1) {
+      throw new Error("Clip numbers start at 1.");
+    }
+    if (seen.has(item)) {
+      continue;
+    }
+    seen.add(item);
+    clips.push(item);
+  }
+  if (clips.length === 0) {
+    throw new Error("Check at least one clip.");
+  }
+  return clips;
 }
 
 function requiredClip(body: Record<string, unknown>): number {

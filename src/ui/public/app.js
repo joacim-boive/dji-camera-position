@@ -9,6 +9,7 @@ const deltaEl = document.querySelector("#delta");
 const notesEl = document.querySelector("#notes");
 const writeButton = document.querySelector("#write");
 const matchSelect = document.querySelector("#match");
+const checkAll = document.querySelector("#check-all");
 const levelEl = document.querySelector("#level");
 const levelCaption = document.querySelector("#level-caption");
 const presetsEl = document.querySelector("#presets");
@@ -19,6 +20,8 @@ const state = {
   projects: [],
   draft: null,
   clipIndex: 1,
+  checked: new Set(),
+  checkedPath: "",
   presets: [],
   studioRunning: false,
   preview: null,
@@ -81,6 +84,15 @@ writeButton.addEventListener("click", () => {
     toast(error.message);
     paintWrite();
   });
+});
+
+checkAll.addEventListener("change", () => {
+  const clips = state.draft?.clips ?? [];
+  state.checked = checkAll.checked
+    ? new Set(clips.map((clip) => clip.index))
+    : new Set();
+  paintChecks();
+  paintApplyButtons();
 });
 
 matchSelect.addEventListener("change", () => {
@@ -252,9 +264,34 @@ function paintDraft() {
   signature.textContent = draft.signatureMatches
     ? `crc32 ${draft.signature} matches`
     : `crc32 ${draft.signature || "missing"} does not match`;
+  if (draft.draftPath !== state.checkedPath) {
+    state.checkedPath = draft.draftPath;
+    state.checked = new Set();
+  }
+  const live = new Set(draft.clips.map((clip) => clip.index));
+  for (const index of state.checked) {
+    if (!live.has(index)) {
+      state.checked.delete(index);
+    }
+  }
   clipsEl.replaceChildren();
   matchSelect.replaceChildren();
   for (const clip of draft.clips) {
+    const row = document.createElement("div");
+    row.className = "clip-pick";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.dataset.clip = String(clip.index);
+    box.setAttribute("aria-label", `Apply to clip ${clip.index}`);
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        state.checked.add(clip.index);
+      } else {
+        state.checked.delete(clip.index);
+      }
+      paintChecks();
+      paintApplyButtons();
+    });
     const button = document.createElement("button");
     button.type = "button";
     button.role = "tab";
@@ -269,7 +306,8 @@ function paintDraft() {
       fillForm(clip.view);
       paintDraft();
     });
-    clipsEl.append(button);
+    row.append(box, button);
+    clipsEl.append(row);
 
     const option = document.createElement("option");
     option.value = String(clip.index);
@@ -285,6 +323,8 @@ function paintDraft() {
     matchSelect.value = String(current.index);
   }
   paintProjects();
+  paintChecks();
+  paintApplyButtons();
   schedulePreview();
 }
 
@@ -324,6 +364,7 @@ function paintWrite() {
     : changed
       ? `Write clip ${state.clipIndex}`
       : "Write to draft";
+  paintApplyButtons();
 }
 
 function paintLevel() {
@@ -570,10 +611,92 @@ function paintPresets() {
     remove.addEventListener("click", () => {
       void deletePreset(preset.name).catch((error) => toast(error.message));
     });
-    actions.append(load, remove);
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.dataset.apply = preset.name;
+    apply.textContent = "Apply";
+    apply.addEventListener("click", () => {
+      void applyPreset(preset.name).catch((error) => toast(error.message));
+    });
+    actions.append(load, apply, remove);
     item.append(actions);
     presetsEl.append(item);
   }
+  paintApplyButtons();
+}
+
+function paintChecks() {
+  const clips = state.draft?.clips ?? [];
+  for (const box of clipsEl.querySelectorAll("input[data-clip]")) {
+    box.checked = state.checked.has(Number(box.dataset.clip));
+  }
+  const allOn =
+    clips.length > 0 && clips.every((clip) => state.checked.has(clip.index));
+  const some = clips.some((clip) => state.checked.has(clip.index));
+  checkAll.checked = allOn;
+  checkAll.indeterminate = some && !allOn;
+  checkAll.disabled = clips.length === 0;
+}
+
+function paintApplyButtons() {
+  const blocked = applyBlocked();
+  for (const button of presetsEl.querySelectorAll("[data-apply]")) {
+    button.disabled = blocked;
+  }
+}
+
+function applyBlocked() {
+  return (
+    state.draft === null ||
+    state.checked.size === 0 ||
+    state.studioRunning ||
+    state.draft.signatureMatches === false
+  );
+}
+
+async function applyPreset(name) {
+  if (state.draft === null || state.checked.size === 0) {
+    return;
+  }
+  const clips = [...state.checked].sort((left, right) => left - right);
+  const result = await api("/api/presets/apply", {
+    path: state.draft.draftPath,
+    name,
+    clips,
+  });
+  state.draft = result.draft;
+  toast(applyToast(name, result.updated, result.unchanged));
+  paintDraft();
+  await loadProjects();
+}
+
+function applyToast(name, updated, unchanged) {
+  const wrote = Array.isArray(updated) ? updated : [];
+  const same = Array.isArray(unchanged) ? unchanged : [];
+  const parts = [];
+  if (wrote.length > 0) {
+    parts.push(`Applied ${name} to ${clipPhrase(wrote)}.`);
+  }
+  if (same.length > 0) {
+    const label = same.length === 1 ? "Clip" : "Clips";
+    const verb = same.length === 1 ? "has" : "have";
+    parts.push(`${label} ${joinNumbers(same)} already ${verb} that view.`);
+  }
+  return parts.join(" ");
+}
+
+function clipPhrase(indexes) {
+  return `${indexes.length === 1 ? "clip" : "clips"} ${joinNumbers(indexes)}`;
+}
+
+function joinNumbers(indexes) {
+  if (indexes.length <= 1) {
+    return String(indexes[0] ?? "");
+  }
+  if (indexes.length === 2) {
+    return `${indexes[0]} and ${indexes[1]}`;
+  }
+  return `${indexes.slice(0, -1).join(", ")}, and ${indexes.at(-1)}`;
 }
 
 function fillForm(view) {

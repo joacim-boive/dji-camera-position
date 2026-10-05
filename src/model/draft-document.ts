@@ -21,7 +21,12 @@ import {
   type CameraViewPatch,
   type ViewTuple,
 } from "./camera-view.js";
-import { applyEdits, findObjectById, keyValueSpan } from "./json-span.js";
+import {
+  applyEdits,
+  findObjectById,
+  keyValueSpan,
+  type TextSpan,
+} from "./json-span.js";
 import {
   crc32Hex,
   dataValueSpan,
@@ -61,6 +66,13 @@ export type WriteResult = {
   backupPath?: string;
   before: CameraView;
   after: CameraView;
+};
+
+export type WriteClipsResult = {
+  changed: boolean;
+  backupPath?: string;
+  updated: number[];
+  unchanged: number[];
 };
 
 type VideoNode = {
@@ -184,7 +196,75 @@ export async function writeClipView(
     { start: signature.start, end: signature.end, next: nextSignature },
   ]);
   assertRewritten(original, nextText, clip.viewId, nextOffset);
+  const backupPath = await commitDraft(draftPath, nextText);
+  return { changed: true, backupPath, before: clip.view, after };
+}
 
+export async function writeClipViews(
+  draftPath: string,
+  clipIndexes: readonly number[],
+  view: CameraView,
+): Promise<WriteClipsResult> {
+  const original = stripBom(await readFile(draftPath, "utf8"));
+  const report = parseDraftViews(draftPath, original);
+  if (report.signatureMethod !== "crc32" || !report.signatureMatches) {
+    throw new Error(
+      "The crc32 signature does not match this draft. Refusing to write.",
+    );
+  }
+  const clips = uniqueClipIndexes(clipIndexes).map((index) =>
+    clipAt(report.clips, index),
+  );
+  const updated: number[] = [];
+  const unchanged: number[] = [];
+  const edits: Array<TextSpan & { next: string }> = [];
+  const offsets = new Map<string, ViewTuple>();
+  for (const clip of clips) {
+    const nextOffset = offsetWithPatch(clip.viewParam, clip.viewOffset, view);
+    if (tuplesEqual(clip.viewOffset, nextOffset)) {
+      unchanged.push(clip.index);
+      continue;
+    }
+    const objectSpan = findObjectById(original, clip.viewId);
+    const offsetSpan = keyValueSpan(original, objectSpan, "view_offset");
+    edits.push({ ...offsetSpan, next: formatViewTuple(nextOffset) });
+    offsets.set(clip.viewId, nextOffset);
+    updated.push(clip.index);
+  }
+  updated.sort((left, right) => left - right);
+  unchanged.sort((left, right) => left - right);
+  if (edits.length === 0) {
+    return { changed: false, updated, unchanged };
+  }
+  const withOffsets = applyEdits(original, edits);
+  const data = dataValueSpan(withOffsets);
+  const nextSignature = crc32Hex(withOffsets.slice(data.start, data.end));
+  const signature = readLeadingSignature(withOffsets);
+  const nextText = applyEdits(withOffsets, [
+    { start: signature.start, end: signature.end, next: nextSignature },
+  ]);
+  assertRewrittenMany(original, nextText, offsets);
+  const backupPath = await commitDraft(draftPath, nextText);
+  return { changed: true, backupPath, updated, unchanged };
+}
+
+function uniqueClipIndexes(clipIndexes: readonly number[]): number[] {
+  const seen = new Set<number>();
+  const unique: number[] = [];
+  for (const index of clipIndexes) {
+    if (seen.has(index)) {
+      continue;
+    }
+    seen.add(index);
+    unique.push(index);
+  }
+  return unique;
+}
+
+async function commitDraft(
+  draftPath: string,
+  nextText: string,
+): Promise<string> {
   const tempPath = `${draftPath}.tmp-${randomBytes(4).toString("hex")}`;
   const backupPath = `${draftPath}.backup-${backupStamp()}-${randomBytes(2).toString("hex")}`;
   try {
@@ -210,8 +290,7 @@ export async function writeClipView(
     await unlink(tempPath).catch(() => undefined);
     throw error;
   }
-
-  return { changed: true, backupPath, before: clip.view, after };
+  return backupPath;
 }
 
 async function collectDrafts(
@@ -396,23 +475,35 @@ function assertRewritten(
   viewId: string,
   offset: ViewTuple,
 ): void {
+  assertRewrittenMany(beforeText, afterText, new Map([[viewId, offset]]));
+}
+
+function assertRewrittenMany(
+  beforeText: string,
+  afterText: string,
+  offsets: ReadonlyMap<string, ViewTuple>,
+): void {
   const before = parseJsonText(beforeText);
   const after = parseJsonText(afterText);
-  assertPreserved(before, after, viewId, "");
+  assertPreserved(before, after, new Set(offsets.keys()), "");
   const report = parseDraftViews("rewritten", afterText);
   if (!report.signatureMatches) {
     throw new Error("Rewritten signature does not match the data payload.");
   }
-  const clip = report.clips.find((item) => item.viewId === viewId);
-  if (clip === undefined || !tuplesEqual(clip.viewOffset, offset)) {
-    throw new Error("Rewritten view_offset does not match the requested view.");
+  for (const [viewId, offset] of offsets) {
+    const clip = report.clips.find((item) => item.viewId === viewId);
+    if (clip === undefined || !tuplesEqual(clip.viewOffset, offset)) {
+      throw new Error(
+        "Rewritten view_offset does not match the requested view.",
+      );
+    }
   }
 }
 
 function assertPreserved(
   before: unknown,
   after: unknown,
-  viewId: string,
+  viewIds: ReadonlySet<string>,
   location: string,
 ): void {
   if (location === "signature") {
@@ -432,7 +523,7 @@ function assertPreserved(
       if (left === undefined || right === undefined) {
         throw new Error(`Draft structure changed at ${location}[${index}].`);
       }
-      assertPreserved(left, right, viewId, `${location}[${index}]`);
+      assertPreserved(left, right, viewIds, `${location}[${index}]`);
     }
     return;
   }
@@ -442,8 +533,11 @@ function assertPreserved(
     if (beforeKeys.join("\0") !== afterKeys.join("\0")) {
       throw new Error(`Draft fields changed at ${location || "root"}.`);
     }
+    const id = before.id;
     const isTarget =
-      before.__type__ === "PanoramaViewData" && before.id === viewId;
+      before.__type__ === "PanoramaViewData" &&
+      typeof id === "string" &&
+      viewIds.has(id);
     for (const key of beforeKeys) {
       if (isTarget && key === "view_offset") {
         continue;
@@ -451,7 +545,7 @@ function assertPreserved(
       assertPreserved(
         before[key],
         after[key],
-        viewId,
+        viewIds,
         location.length === 0 ? key : `${location}.${key}`,
       );
     }

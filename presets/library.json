@@ -2,12 +2,12 @@
   "version": 1,
   "presets": [
     {
-      "name": "test",
-      "pan": -180.00000500895632,
-      "tilt": 0,
+      "name": "wide-left",
+      "pan": -26.399999368609095,
+      "tilt": -29.299998652453542,
       "roll": 0,
       "fov": 60,
-      "correction": 1
+      "correction": 0.6000000238418579
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   parseDraftViews,
   resolveDraftFile,
   writeClipView,
+  writeClipViews,
 } from "../src/model/draft-document.js";
 import { formatDraftViews } from "../src/model/format-view.js";
 import { crc32Hex } from "../src/model/signature.js";
@@ -90,4 +91,52 @@ describe("draft views", () => {
     expect(await readFile(draftPath, "utf8")).toBe(original);
     expect(await readdir(directory)).toEqual(["draft.json"]);
   });
+
+  it("writes several clips in one backup and leaves the rest untouched", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "dji-draft-"));
+    const draftPath = path.join(directory, "draft.json");
+    const original = wrap(threeClipData());
+    await writeFile(draftPath, original);
+    const view = { pan: -180, tilt: 0, roll: 0, fov: 60, correction: 1 };
+
+    const result = await writeClipViews(draftPath, [3, 1, 3], view);
+    const text = await readFile(draftPath, "utf8");
+    expect(result.changed).toBe(true);
+    expect(result.updated).toEqual([1, 3]);
+    expect(result.unchanged).toEqual([]);
+    expect(result.backupPath).toMatch(
+      /draft\.json\.backup-\d{8}T\d{6}-[0-9a-f]{4}$/,
+    );
+    expect(text).toContain("-3.1415927410125732");
+    expect(text).toContain('"view_offset":[0.0,1.0,0.0,0.0,0.0]');
+    expect(text).toContain('"kept":true');
+    expect(text).toContain('"volume":1.0');
+    expect(parseDraftViews(draftPath, text).signatureMatches).toBe(true);
+    expect(parseDraftViews(draftPath, text).clips[1]?.viewOffset[1]).toBe(1);
+    const backups = (await readdir(directory)).filter((name) =>
+      name.startsWith("draft.json.backup-"),
+    );
+    expect(backups).toHaveLength(1);
+
+    const again = await writeClipViews(draftPath, [1, 3], view);
+    expect(again.changed).toBe(false);
+    expect(again.updated).toEqual([]);
+    expect(again.unchanged).toEqual([1, 3]);
+    expect(again.backupPath).toBeUndefined();
+    expect(await readFile(draftPath, "utf8")).toBe(text);
+    expect(
+      (await readdir(directory)).filter((name) =>
+        name.startsWith("draft.json.backup-"),
+      ),
+    ).toHaveLength(1);
+
+    await expect(writeClipViews(draftPath, [4], view)).rejects.toThrow(
+      "Clip 4 is not in this draft.",
+    );
+    expect(await readFile(draftPath, "utf8")).toBe(text);
+  });
 });
+
+function threeClipData(): string {
+  return `{"nodes":[{"__type__":"Track","id":"track-1","volume":1.0,"clips":[{"id":"video-1"},{"id":"video-2"},{"id":"video-3"}]},{"__type__":"PanoramaVideo","id":"video-1","time_range":[0,1000],"freedom_view_id":"view-1"},{"__type__":"PanoramaVideo","id":"video-2","time_range":[1000,2000],"freedom_view_id":"view-2"},{"__type__":"PanoramaVideo","id":"video-3","time_range":[2000,3000],"freedom_view_id":"view-3"},{"__type__":"PanoramaViewData","id":"view-1","view_param":[0.0,0.0,0.0,60.0,1.0],"view_offset":[0.0,0.0,0.0,0.0,0.0]},{"__type__":"PanoramaViewData","id":"view-2","view_param":[0.0,0.0,0.0,60.0,1.0],"view_offset":[0.0,1.0,0.0,0.0,0.0],"kept":true},{"__type__":"PanoramaViewData","id":"view-3","view_param":[0.0,0.0,0.0,60.0,1.0],"view_offset":[0.0,0.0,0.0,0.0,0.0]}]}`;
+}
