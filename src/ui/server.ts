@@ -29,6 +29,7 @@ import {
   formatMicros,
 } from "../model/format-view.js";
 import { lrfIsPresent } from "../model/proxy.js";
+import { previewOrientation } from "../model/reframe.js";
 import { resolveUserPath } from "../paths.js";
 import {
   defaultPresetLibraryPath,
@@ -147,6 +148,19 @@ async function handleRequest(
       200,
       html.replaceAll("__TOKEN__", context.token),
       "text/html; charset=utf-8",
+    );
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/preview.js") {
+    const source = await readFile(
+      path.join(context.publicDir, "preview.js"),
+      "utf8",
+    );
+    sendText(
+      response,
+      200,
+      substitutePreview(source),
+      "text/javascript; charset=utf-8",
     );
     return;
   }
@@ -337,6 +351,18 @@ async function handleRequest(
     const message = error instanceof Error ? error.message : String(error);
     sendJson(response, 400, { error: message });
   }
+}
+
+function substitutePreview(source: string): string {
+  const orientation = previewOrientation;
+  return source
+    .replaceAll("__YAW_DEGREES__", String(orientation.yawDegrees))
+    .replaceAll("__PITCH_DEGREES__", String(orientation.pitchDegrees))
+    .replaceAll("__ROLL_DEGREES__", String(orientation.rollDegrees))
+    .replaceAll("__FLIP_HORIZONTAL__", String(orientation.flipHorizontal))
+    .replaceAll("__PAN_SIGN__", String(orientation.panSign))
+    .replaceAll("__TILT_SIGN__", String(orientation.tiltSign))
+    .replaceAll("__ROLL_SIGN__", String(orientation.rollSign));
 }
 
 function clipQuery(url: URL): number {

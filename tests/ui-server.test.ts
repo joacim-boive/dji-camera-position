@@ -42,6 +42,26 @@ describe("framing desk", () => {
     ui = undefined;
   });
 
+  it("substitutes preview orientation into the shader script", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "dji-ui-shader-"));
+    ui = await startUiServer({
+      port: 0,
+      homeRoot: root,
+      projectRoot: root,
+      libraryPath: path.join(root, "library.json"),
+      checkStudio: false,
+    });
+    const response = await fetch(`${ui.url}/preview.js`);
+    expect(response.status).toBe(200);
+    const source = await response.text();
+    expect(source).not.toContain("__YAW_DEGREES__");
+    expect(source).not.toContain("__FLIP_HORIZONTAL__");
+    expect(source).toContain("const yawDegrees = 0;");
+    expect(source).toContain("const flipHorizontal = false;");
+    expect(source).toContain("const panSign = 1;");
+    new Function(source);
+  });
+
   it("lists a project, previews without writing, then writes the free view", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "dji-ui-"));
     const draftPath = path.join(
