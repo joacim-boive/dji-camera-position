@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import {
   createServer,
   type IncomingMessage,
@@ -38,6 +38,12 @@ import {
   savePreset,
 } from "../presets/library.js";
 import { assertStudioQuit, studioIsRunning } from "../studio.js";
+import {
+  missingProxySentence,
+  preparedProxy,
+  remuxSentence,
+  sendVideo,
+} from "./media.js";
 import { listDraftProjects } from "./projects.js";
 
 export type UiServerOptions = {
@@ -205,6 +211,34 @@ async function handleRequest(
       });
       return;
     }
+    if (request.method === "GET" && url.pathname === "/api/media") {
+      const header = request.headers["x-frame-desk"];
+      const authorized =
+        url.searchParams.get("t") === context.token ||
+        (typeof header === "string" && header === context.token);
+      if (!authorized) {
+        sendJson(response, 403, { error: "Missing frame desk token." });
+        return;
+      }
+      const report = await readAllowedDraft(
+        url.searchParams.get("path") ?? "",
+        context.homeRoot,
+      );
+      const clip = clipAt(report.clips, clipQuery(url));
+      const realPath = await resolvedLrf(clip.proxyPath);
+      if (realPath === undefined) {
+        sendJson(response, 404, { error: missingProxySentence });
+        return;
+      }
+      try {
+        const info = await stat(realPath);
+        const file = await preparedProxy(realPath, info.size, info.mtimeMs);
+        await sendVideo(request, response, file);
+      } catch (error) {
+        sendJson(response, 400, { error: remuxSentence(error) });
+      }
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/api/preview") {
       const body = await readJson(request);
       const report = await readAllowedDraft(
@@ -295,6 +329,31 @@ async function handleRequest(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     sendJson(response, 400, { error: message });
+  }
+}
+
+function clipQuery(url: URL): number {
+  const value = Number(url.searchParams.get("clip"));
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error("Clip numbers start at 1.");
+  }
+  return value;
+}
+
+async function resolvedLrf(
+  filePath: string | undefined,
+): Promise<string | undefined> {
+  if (filePath === undefined) {
+    return undefined;
+  }
+  try {
+    const realPath = await realpath(filePath);
+    if (!realPath.toLowerCase().endsWith(".lrf")) {
+      return undefined;
+    }
+    return realPath;
+  } catch {
+    return undefined;
   }
 }
 
