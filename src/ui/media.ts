@@ -121,7 +121,10 @@ export async function sendVideo(
   await new Promise<void>((resolve, reject) => {
     const stream = createReadStream(filePath, { start, end });
     stream.on("error", reject);
-    response.on("close", resolve);
+    response.on("close", () => {
+      stream.destroy();
+      resolve();
+    });
     stream.pipe(response);
   });
 }
