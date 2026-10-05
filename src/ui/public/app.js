@@ -129,6 +129,7 @@ document.querySelector("#preset-form").addEventListener("submit", (event) => {
 });
 
 const previewStorageKey = "frame-desk-preview";
+let shownClip = null;
 
 FramePreview.mount({
   canvas: pictureCanvas,
@@ -149,6 +150,9 @@ function paintPreviewToggle() {
   previewToggle.setAttribute("aria-pressed", String(!hidden));
   picture.hidden = hidden;
   FramePreview.setVisible(!hidden);
+  if (hidden) {
+    shownClip = null;
+  }
 }
 
 previewToggle.addEventListener("click", () => {
@@ -167,6 +171,18 @@ function showCurrentClip() {
     state.draft.clips.find((item) => item.index === state.clipIndex) ??
     state.draft.clips[0];
   if (!clip) return;
+  if (
+    shownClip?.draftPath === state.draft.draftPath &&
+    shownClip.clipIndex === clip.index &&
+    shownClip.proxyReady === clip.proxyReady
+  ) {
+    return;
+  }
+  shownClip = {
+    draftPath: state.draft.draftPath,
+    clipIndex: clip.index,
+    proxyReady: clip.proxyReady,
+  };
   FramePreview.showClip(state.draft.draftPath, clip);
 }
 
