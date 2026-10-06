@@ -531,6 +531,23 @@ button:disabled {
   margin-top: 8px;
 }
 
+.preview-note,
+.picture-banner {
+  margin: 8px 0 0;
+  font-family: "Fragment Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.picture-banner {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  background: #3a2618;
+  border: 1px solid var(--amber-deep);
+}
+
 .preview-toggle[aria-pressed="false"] {
   opacity: 0.55;
 }
