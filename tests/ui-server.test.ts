@@ -55,6 +55,31 @@ describe("framing desk", () => {
     ui = undefined;
   });
 
+  it("shows the MIT license and the bundled ffmpeg terms", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "dji-ui-licenses-"));
+    ui = await startUiServer({
+      port: 0,
+      homeRoot: root,
+      projectRoot: root,
+      libraryPath: path.join(root, "library.json"),
+      checkStudio: false,
+      ffmpegPath: "/Frame Desk.app/Contents/Resources/ffmpeg",
+    });
+    const desk = await fetch(ui.url);
+    expect(desk.status).toBe(200);
+    expect(await desk.text()).toContain('href="/licenses"');
+    const licenses = await fetch(`${ui.url}/licenses`);
+    expect(licenses.status).toBe(200);
+    const page = await licenses.text();
+    expect(page).toContain("MIT License");
+    expect(page).toContain("GNU LESSER GENERAL PUBLIC LICENSE");
+    expect(page).toContain("FFmpeg 7.1.5");
+    expect(page).toContain("/Frame Desk.app/Contents/Resources/ffmpeg");
+    expect(page).not.toContain("__APP_LICENSE__");
+    expect(page).not.toContain("__FFMPEG_NOTICE__");
+    expect(page).not.toContain("__LGPL_LICENSE__");
+  });
+
   it("substitutes preview orientation into the shader script", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "dji-ui-shader-"));
     ui = await startUiServer({

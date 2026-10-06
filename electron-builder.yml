@@ -1,0 +1,28 @@
+appId: app.frame-desk
+productName: Frame Desk
+copyright: Copyright © 2026 Joacim Boive
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.map"
+extraResources:
+  - from: build/resources
+    to: .
+    filter:
+      - ffmpeg
+  - from: .
+    to: .
+    filter:
+      - LICENSE
+  - from: src/ui/public/legal
+    to: .
+    filter:
+      - LGPL-2.1.txt
+mac:
+  category: public.app-category.video
+  identity: null
+  hardenedRuntime: false
+  target:
+    - zip

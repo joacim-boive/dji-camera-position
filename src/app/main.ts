@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog } from "electron";
 import path from "node:path";
+import { resolveFfmpegPath } from "../ui/ffmpeg-bin.js";
 import { startUiServer, type UiServer } from "../ui/server.js";
 
-const publicDir = path.resolve(process.cwd(), "src/ui/public");
+const devPublicDir = path.resolve(process.cwd(), "src/ui/public");
 
 let desk: UiServer | undefined;
 let window: BrowserWindow | undefined;
@@ -45,7 +46,11 @@ app.on("before-quit", () => {
 async function openDesk(): Promise<void> {
   desk = await startUiServer({
     port: 0,
-    publicDir,
+    ...(app.isPackaged ? {} : { publicDir: devPublicDir }),
+    ffmpegPath: resolveFfmpegPath({
+      resourcesDir: app.isPackaged ? process.resourcesPath : undefined,
+      override: process.env.FRAME_DESK_FFMPEG,
+    }),
     pickFolder: () => chooseProjectFolder(window),
   });
   window = new BrowserWindow({

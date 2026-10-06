@@ -34,3 +34,5 @@ backups/
 *.db-shm
 .history
 .worktrees/
+build/
+release/

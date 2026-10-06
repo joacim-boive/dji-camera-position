@@ -106,6 +106,26 @@ h2 {
   font-size: 28px;
 }
 
+.mast-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.licenses-link {
+  color: var(--amber);
+  font-family: "Fragment Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.licenses-link:hover {
+  text-decoration: underline;
+}
+
 .studio {
   margin: 0;
   flex-shrink: 0;
@@ -626,8 +646,58 @@ button:disabled {
     margin-bottom: 18px;
   }
 
+  .mast-side {
+    align-items: flex-start;
+    margin-top: 12px;
+  }
+
   .studio,
   .readout input {
     text-align: left;
   }
+}
+
+body.licenses {
+  display: block;
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+
+.licenses-sheet {
+  position: relative;
+  width: min(760px, calc(100% - 48px));
+  margin: 32px auto 72px;
+}
+
+.licenses-sheet h2,
+.licenses-sheet h3 {
+  margin-top: 36px;
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-weight: 500;
+}
+
+.licenses-sheet h2 {
+  font-size: 22px;
+}
+
+.licenses-sheet h3 {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.licenses-sheet p {
+  line-height: 1.5;
+}
+
+.licenses-sheet pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-family: "Fragment Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+  background: #120f0c;
+  border: 1px solid var(--line);
+  padding: 16px;
 }

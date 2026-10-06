@@ -66,6 +66,7 @@ export async function preparedProxy(
   realPath: string,
   size: number,
   mtimeMs: number,
+  ffmpegPath: string,
 ): Promise<string> {
   const hash = proxyCacheKey(realPath, size, mtimeMs);
   const target = path.join(os.tmpdir(), "frame-desk-proxies", `${hash}.mp4`);
@@ -76,7 +77,7 @@ export async function preparedProxy(
   if (running !== undefined) {
     return running;
   }
-  const job = remuxToCache(realPath, target);
+  const job = remuxToCache(realPath, target, ffmpegPath);
   jobs.set(hash, job);
   void job.then(
     () => jobs.delete(hash),
@@ -139,12 +140,16 @@ export async function sendVideo(
   });
 }
 
-async function remuxToCache(input: string, target: string): Promise<string> {
+async function remuxToCache(
+  input: string,
+  target: string,
+  ffmpegPath: string,
+): Promise<string> {
   const directory = path.dirname(target);
   const part = `${target}.part`;
   await mkdir(directory, { recursive: true });
   try {
-    await runFfmpeg(input, part);
+    await runFfmpeg(input, part, ffmpegPath);
     await rename(part, target);
     return target;
   } catch (error) {
@@ -153,10 +158,14 @@ async function remuxToCache(input: string, target: string): Promise<string> {
   }
 }
 
-function runFfmpeg(input: string, outputPart: string): Promise<void> {
+function runFfmpeg(
+  input: string,
+  outputPart: string,
+  ffmpegPath: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
-      "ffmpeg",
+      ffmpegPath,
       [
         "-hide_banner",
         "-loglevel",

@@ -39,6 +39,7 @@ import {
   savePreset,
 } from "../presets/library.js";
 import { assertStudioQuit, studioIsRunning } from "../studio.js";
+import { ffmpegNotice } from "./ffmpeg-bin.js";
 import {
   missingProxySentence,
   preparedProxy,
@@ -55,6 +56,7 @@ export type UiServerOptions = {
   libraryPath?: string;
   checkStudio?: boolean;
   publicDir?: string;
+  ffmpegPath?: string;
   pickFolder?: () => Promise<string | null>;
 };
 
@@ -85,6 +87,7 @@ export async function startUiServer(
     );
   const libraryPath = options.libraryPath ?? defaultPresetLibraryPath();
   const publicDir = options.publicDir ?? bundledPublicDir;
+  const ffmpegPath = options.ffmpegPath ?? "ffmpeg";
   const server = createServer((request, response) => {
     void handleRequest(request, response, {
       token,
@@ -92,6 +95,7 @@ export async function startUiServer(
       projectRoot,
       libraryPath,
       publicDir,
+      ffmpegPath,
       checkStudio: options.checkStudio !== false,
       pickFolder: options.pickFolder,
     }).catch((error: unknown) => {
@@ -125,6 +129,7 @@ type ServerContext = {
   projectRoot: string;
   libraryPath: string;
   publicDir: string;
+  ffmpegPath: string;
   checkStudio: boolean;
   pickFolder?: () => Promise<string | null>;
 };
@@ -178,6 +183,10 @@ async function handleRequest(
       await readFile(path.join(context.publicDir, fileName), "utf8"),
       type,
     );
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/licenses") {
+    await sendLicenses(response, context);
     return;
   }
   if (!url.pathname.startsWith("/api/")) {
@@ -246,7 +255,12 @@ async function handleRequest(
       }
       try {
         const info = await stat(realPath);
-        const file = await preparedProxy(realPath, info.size, info.mtimeMs);
+        const file = await preparedProxy(
+          realPath,
+          info.size,
+          info.mtimeMs,
+          context.ffmpegPath,
+        );
         await sendVideo(request, response, file);
       } catch (error) {
         if (response.destroyed || response.writableEnded) {
@@ -567,6 +581,29 @@ function finiteField(value: unknown, label: string): number {
 function booleanField(body: Record<string, unknown>, key: string): boolean {
   const value = body[key];
   return value === true;
+}
+
+async function sendLicenses(
+  response: ServerResponse,
+  context: ServerContext,
+): Promise<void> {
+  const [html, appLicense, lgpl] = await Promise.all([
+    readFile(path.join(context.publicDir, "licenses.html"), "utf8"),
+    readFile(path.join(context.publicDir, "legal", "MIT.txt"), "utf8"),
+    readFile(path.join(context.publicDir, "legal", "LGPL-2.1.txt"), "utf8"),
+  ]);
+  const page = html
+    .replaceAll("__APP_LICENSE__", escapeHtml(appLicense))
+    .replaceAll("__FFMPEG_NOTICE__", escapeHtml(ffmpegNotice(context.ffmpegPath)))
+    .replaceAll("__LGPL_LICENSE__", escapeHtml(lgpl));
+  sendText(response, 200, page, "text/html; charset=utf-8");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function sendJson(

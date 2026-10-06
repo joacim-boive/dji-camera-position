@@ -9,7 +9,8 @@ A write updates one field in `draft.json`: the free-view offset. Video files are
 - macOS. Project discovery and the Studio quit check follow the layout used by DJI Studio 1.2.21 (`com.light.studio`) on this platform.
 - [Node.js](https://nodejs.org/) 22 or newer.
 - [pnpm](https://pnpm.io/).
-- [ffmpeg](https://ffmpeg.org/) on `PATH` if you use the live preview. The rest of the desk works without it.
+- Xcode command line tools, for `pnpm build`. That command compiles FFmpeg and packs the app.
+- `ffmpeg` on `PATH` when you run the desk from source and want the preview. The packaged app carries its own FFmpeg.
 
 ## Install
 
@@ -75,6 +76,18 @@ Angles are degrees. Roll on screen is the opposite sign of the stored radians. F
 Presets are the on-screen pan, tilt, roll, field of view, and correction, stored in `presets/library.json`.
 
 Quit DJI Studio before any `--write`.
+
+## Build
+
+```bash
+pnpm build
+```
+
+This compiles the TypeScript, builds FFmpeg 7.1.5 from the [official source archive](https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz) with `--disable-gpl` and `--disable-nonfree`, and writes a zip to `release/`. Unzip it and open Frame Desk. The FFmpeg binary is at `Contents/Resources/ffmpeg`, next to `LICENSE` and `LGPL-2.1.txt`.
+
+The build matches the machine you run it on, arm64 or x64. The app is unsigned. The first time you open it, control-click Frame Desk and choose Open.
+
+The desk header links to a Licenses page with the MIT license, the FFmpeg terms, and the full LGPL text.
 
 ## Development
 

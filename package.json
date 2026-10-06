@@ -3,14 +3,17 @@
   "version": "0.0.1",
   "private": true,
   "license": "MIT",
+  "author": "Joacim Boive",
   "type": "module",
   "description": "Inspect DJI Studio projects and copy virtual-camera settings without re-encoding video.",
   "engines": {
     "node": ">=22"
   },
+  "main": "dist/app/main.js",
   "scripts": {
     "dji": "tsx src/cli/index.ts",
     "app": "NODE_OPTIONS='--import tsx' electron src/app/main.ts",
+    "build": "tsx scripts/build.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -21,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
